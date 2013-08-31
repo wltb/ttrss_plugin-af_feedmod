@@ -49,8 +49,6 @@ class Af_Feedmod extends Plugin implements IHandler
 
     function hook_article_filter($article)
     {
-        global $fetch_last_content_type;
-
         $json_conf = $this->host->get($this, 'json_conf');
         $owner_uid = $article['owner_uid'];
         $data = json_decode($json_conf, true);
@@ -72,70 +70,14 @@ class Af_Feedmod extends Plugin implements IHandler
                 case 'xpath':
                     $doc = new DOMDocument();
                     $link = trim($article['link']);
-
-                    if (version_compare(VERSION, '1.7.9', '>=')) {
-                        $html = fetch_file_contents($link);
-                        $content_type = $fetch_last_content_type;
-                    } else {
-                        // fallback to file_get_contents()
-                        $html = file_get_contents($link);
-
-                        // try to fetch charset from HTTP headers
-                        $headers = $http_response_header;
-                        $content_type = false;
-                        foreach ($headers as $h) {
-                            if (substr(strtolower($h), 0, 13) == 'content-type:') {
-                                $content_type = substr($h, 14);
-                                // don't break here to find LATEST (if redirected) entry
-                            }
-                        }
-                    }
-
-                    if (!isset($config['force_charset'])) {
-                        $charset = false;
-                        if ($content_type) {
-                            preg_match('/charset=(\S+)/', $content_type, $matches);
-                            if (isset($matches[1]) && !empty($matches[1])) $charset = $matches[1];
-                        }
-
-                        if ($charset) {
-                            $html = '<?xml encoding="' . $charset . '">' . $html;
-                        }
-                    } else {
-                        // use forced charset
-                        $html = '<?xml encoding="' . $config['force_charset'] . '">' . $html;
-                    }
-
+                    
+                    $html = $this->fetch_page($link, $config);
                     @$doc->loadHTML($html);
-
-                    if ($doc) {
-                        $basenode = false;
-                        $xpath = new DOMXPath($doc);
-                        $entries = $xpath->query('(//'.$config['xpath'].')');   // find main DIV according to config
-
-                        if ($entries->length > 0) $basenode = $entries->item(0);
-
-                        if ($basenode) {
-                            // remove nodes from cleanup configuration
-                            if (isset($config['cleanup'])) {
-                                if (!is_array($config['cleanup'])) {
-                                    $config['cleanup'] = array($config['cleanup']);
-                                }
-                                foreach ($config['cleanup'] as $cleanup) {
-                                    $nodelist = $xpath->query('//'.$cleanup, $basenode);
-                                    foreach ($nodelist as $node) {
-                                        if ($node instanceof DOMAttr) {
-                                            $node->ownerElement->removeAttributeNode($node);
-                                        }
-                                        else {
-                                            $node->parentNode->removeChild($node);
-                                        }
-                                    }
-                                }
-                            }
-                            $article['content'] = $doc->saveXML($basenode);
-                            $article['plugin_data'] = "feedmod,$owner_uid:" . $article['plugin_data'];
-                        }
+                    $new_content = $this->extract_xpath($doc, $config);
+                    
+                    if($new_content != '') {
+                        $article['content'] = $new_content;
+                        $article['plugin_data'] = "feedmod,$owner_uid:" . $article['plugin_data'];
                     }
                     break;
 
@@ -150,6 +92,80 @@ class Af_Feedmod extends Plugin implements IHandler
         return $article;
     }
 
+    //helper functions
+    function fetch_page($link, $config)
+    {
+        global $fetch_last_content_type;
+        
+        if (version_compare(VERSION, '1.7.9', '>=')) {
+            $html = fetch_file_contents($link);
+            $content_type = $fetch_last_content_type;
+        } else {
+            // fallback to file_get_contents()
+            $html = file_get_contents($link);
+    
+            // try to fetch charset from HTTP headers
+            $headers = $http_response_header;
+            $content_type = false;
+            foreach ($headers as $h) {
+                if (substr(strtolower($h), 0, 13) == 'content-type:') {
+                    $content_type = substr($h, 14);
+                    // don't break here to find LATEST (if redirected) entry
+                }
+            }
+        }
+        
+        if (!isset($config['force_charset'])) {
+            $charset = false;
+            if ($content_type) {
+                preg_match('/charset=(\S+)/', $content_type, $matches);
+                if (isset($matches[1]) && !empty($matches[1])) $charset = $matches[1];
+            }
+    
+            if ($charset) {
+                $html = '<?xml encoding="' . $charset . '">' . $html;
+            }
+        } else {
+            // use forced charset
+            $html = '<?xml encoding="' . $config['force_charset'] . '">' . $html;
+        }
+        
+        return $html;
+    }
+    
+    function extract_xpath(DomDocument $doc, $config)
+    {
+        if ($doc) {
+            $basenode = false;
+            $xpath = new DOMXPath($doc);
+            $entries = $xpath->query('(//'.$config['xpath'].')');   // find main DIV according to config
+    
+            if ($entries->length > 0) $basenode = $entries->item(0);
+    
+            if ($basenode) {
+                // remove nodes from cleanup configuration
+                if (isset($config['cleanup'])) {
+                    if (!is_array($config['cleanup'])) {
+                        $config['cleanup'] = array($config['cleanup']);
+                    }
+                    foreach ($config['cleanup'] as $cleanup) {
+                        $nodelist = $xpath->query('//'.$cleanup, $basenode);
+                        foreach ($nodelist as $node) {
+                            if ($node instanceof DOMAttr) {
+                                $node->ownerElement->removeAttributeNode($node);
+                            }
+                            else {
+                                $node->parentNode->removeChild($node);
+                            }
+                        }
+                    }
+                }
+                return $doc->saveXML($basenode);
+            }
+        }
+        return '';
+    }
+    
     function hook_prefs_tabs($args)
     {
         print '<div id="feedmodConfigTab" dojoType="dijit.layout.ContentPane"
