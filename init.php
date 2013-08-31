@@ -65,22 +65,55 @@ class Af_Feedmod extends Plugin implements IHandler
                 if (isset($article['stored']['content'])) $article['content'] = $article['stored']['content'];
                 break;
             }
-
+            
+            $link = trim($article['link']);
+            
             switch ($config['type']) {
                 case 'xpath':
                     $doc = new DOMDocument();
-                    $link = trim($article['link']);
                     
                     $html = $this->fetch_page($link, $config);
                     @$doc->loadHTML($html);
-                    $new_content = $this->extract_xpath($doc, $config);
                     
-                    if($new_content != '') {
-                        $article['content'] = $new_content;
+                    $content = $this->extract_xpath($doc, $config);
+                    
+                    if($content != '') {
+                        $article['content'] = $content;
                         $article['plugin_data'] = "feedmod,$owner_uid:" . $article['plugin_data'];
                     }
                     break;
 
+                case 'xpath_daisy-chain':
+                    $doc = new DOMDocument();
+                    $content = '';
+                    $base_link = $link;
+                    for ($i = 0; $link != '' && $i < 50; $i++) {
+                        //fetch stuff
+                        $html = $this->fetch_page($link, $config);
+                        @$doc->loadHTML($html);
+                        
+                        //get next link
+                        $xpath = new DOMXPath($doc);
+                        $res = $xpath->query('(//'.$config['next'].')');
+                        if($res->length > 0) {
+                            $new_link = $res->item(0)->textContent;
+                            $link = rewrite_relative_url($link, $new_link);
+                            if(isset($config['SOP']) && $config['SOP'] === TRUE
+                                && strpos($link, $base_link) === FALSE)
+                                $link = '';
+                        }
+                        else
+                            $link = '';
+                        
+                        //extract & append content 
+                        $content .= $this->extract_xpath($doc, $config);
+                    }
+                    
+                    if($content != '') {
+                        $article['content'] = $content;
+                        $article['plugin_data'] = "feedmod,$owner_uid:" . $article['plugin_data'];
+                    }
+                    break;
                 default:
                     // unknown type or invalid config
                     continue;
