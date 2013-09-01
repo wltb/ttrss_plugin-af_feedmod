@@ -232,7 +232,7 @@ class Af_Feedmod extends Plugin implements IHandler
         print "<input dojoType=\"dijit.form.TextBox\" style=\"display : none\" name=\"plugin\" value=\"af_feedmod\">";
 
         print "<table width='100%'><tr><td>";
-        print "<textarea dojoType=\"dijit.form.SimpleTextarea\" name=\"json_conf\" style=\"font-size: 12px; width: 99%; height: 500px;\">$json_conf</textarea>";
+        print "<textarea dojoType=\"dijit.form.SimpleTextarea\" name=\"json_conf\" style=\"font-size: 12px; width: 99%; height: 500px;\">" . htmlspecialchars($json_conf, ENT_NOQUOTES, 'UTF-8') . "</textarea>";
         print "</td></tr></table>";
 
         print "<p><button dojoType=\"dijit.form.Button\" type=\"submit\">".__("Save")."</button>";
