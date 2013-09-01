@@ -131,7 +131,14 @@ class Af_Feedmod extends Plugin implements IHandler
         global $fetch_last_content_type;
         
         if (version_compare(VERSION, '1.7.9', '>=')) {
-            $html = fetch_file_contents($link);
+            foreach(array('login', 'pass', 'post_query') as $par) {
+                if(isset($config['fetch_parameters'][$par]))
+                    ${$par} = $config['fetch_parameters'][$par];
+                else
+                    ${$par} = false;
+            }
+            $html = fetch_file_contents($link, false, $login, $pass, $post_query);
+
             $content_type = $fetch_last_content_type;
         } else {
             // fallback to file_get_contents()
