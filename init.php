@@ -161,18 +161,22 @@ class Af_Feedmod extends Plugin implements IHandler
                 preg_match('/charset=(\S+)/', $content_type, $matches);
                 if (isset($matches[1]) && !empty($matches[1])) $charset = $matches[1];
             }
-    
-            if ($charset) {
-                $html = '<?xml encoding="' . $charset . '">' . $html;
-            }
         } else {
             // use forced charset
-            $html = '<?xml encoding="' . $config['force_charset'] . '">' . $html;
+            $charset = $config['force_charset'];
         }
         
+        if ($charset) {
+            //via hakre (http://stackoverflow.com/a/11310258)
+            $false_head = '<head>
+                <meta http-equiv="Content-Type" content="text/html; charset=' . $charset .'"/>
+            </head>';
+            $html = $false_head . $html;
+        }
+
         return $html;
     }
-    
+
     function extract_xpath(DomDocument $doc, $config)
     {
         if ($doc) {
