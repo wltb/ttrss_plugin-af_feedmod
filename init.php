@@ -70,11 +70,7 @@ class Af_Feedmod extends Plugin implements IHandler
             
             switch ($config['type']) {
                 case 'xpath':
-                    $doc = new DOMDocument();
-                    
-                    $html = $this->fetch_page($link, $config);
-                    @$doc->loadHTML($html);
-                    
+                    $doc = $this->fetch_page($link, $config);                    
                     $content = $this->extract_xpath($doc, $config);
                     
                     if($content != '') {
@@ -84,13 +80,11 @@ class Af_Feedmod extends Plugin implements IHandler
                     break;
 
                 case 'xpath_daisy-chain':
-                    $doc = new DOMDocument();
                     $content = '';
                     $base_link = $link;
                     for ($i = 0; $link != '' && $i < 50; $i++) {
                         //fetch stuff
-                        $html = $this->fetch_page($link, $config);
-                        @$doc->loadHTML($html);
+                        $doc = $this->fetch_page($link, $config);
                         
                         //get next link
                         $xpath = new DOMXPath($doc);
@@ -166,15 +160,34 @@ class Af_Feedmod extends Plugin implements IHandler
             $charset = $config['force_charset'];
         }
         
+        $doc = new DOMDocument();
         if ($charset) {
             //via hakre (http://stackoverflow.com/a/11310258)
-            $false_head = '<head>
-                <meta http-equiv="Content-Type" content="text/html; charset=' . $charset .'"/>
-            </head>';
-            $html = $false_head . $html;
+            $make_html_head = function($enc) { return '<head>
+                    <meta http-equiv="Content-Type" content="text/html; charset=' . $enc .'"/>
+                </head>'; };
+
+            // libxml compiled without iconv?
+            libxml_use_internal_errors(true);
+            libxml_clear_errors();
+
+            $doc->loadXML('<?xml version="1.0" encoding="' . $charset . '"?>' . $html);
+            $error = libxml_get_last_error();
+            if ($error && $error->code == 32) {
+                mb_substitute_character("none");
+                $html = mb_convert_encoding($html, 'UTF-8', $charset);
+                $html_head = $make_html_head('UTF-8');
+            }
+            else
+                $html_head = $make_html_head($charset);
+
+            $html = $html_head . $html;
+            libxml_use_internal_errors(false);
         }
 
-        return $html;
+        @$doc->loadHTML($html);
+
+        return $doc;
     }
 
     function extract_xpath(DomDocument $doc, $config)
