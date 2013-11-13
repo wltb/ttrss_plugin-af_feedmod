@@ -100,7 +100,7 @@ class Af_Feedmod extends Plugin implements IHandler
                             $link = '';
                         
                         //extract & append content 
-                        $content .= $this->extract_xpath($doc, $config);
+                        $content .= $this->extract_xpath($doc, $config, $doc->documentURI != $base_link);
                     }
                     
                     if($content != '') {
@@ -186,11 +186,12 @@ class Af_Feedmod extends Plugin implements IHandler
         }
 
         @$doc->loadHTML($html);
+        $doc->documentURI = $link;
 
         return $doc;
     }
 
-    function extract_xpath(DomDocument $doc, $config)
+    function extract_xpath(DomDocument $doc, $config, $rewrite = false)
     {
         if ($doc) {
             $basenode = false;
@@ -217,6 +218,15 @@ class Af_Feedmod extends Plugin implements IHandler
                         }
                     }
                 }
+
+                if ($rewrite) {
+	                //rewrite relative URLs
+	        		$entries = $xpath->query('(.//img[@src]/@src/text()|.//a[@href]/@href/text())', $basenode);
+			        foreach($entries as $entry) {
+	        		    $entry->nodeValue = rewrite_relative_url($doc->documentURI, $entry->textContent);
+	        		}
+        		}
+                
                 return $doc->saveXML($basenode);
             }
         }
