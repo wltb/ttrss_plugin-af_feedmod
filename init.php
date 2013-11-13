@@ -171,7 +171,7 @@ class Af_Feedmod extends Plugin implements IHandler
             libxml_use_internal_errors(true);
             libxml_clear_errors();
 
-            $doc->loadXML('<?xml version="1.0" encoding="' . $charset . '"?>' . $html);
+            $doc->loadXML('<?xml version="1.0" encoding="' . $charset . '"?> <tag/>');
             $error = libxml_get_last_error();
             if ($error && $error->code == 32) {
                 mb_substitute_character("none");
@@ -206,7 +206,7 @@ class Af_Feedmod extends Plugin implements IHandler
                         $config['cleanup'] = array($config['cleanup']);
                     }
                     foreach ($config['cleanup'] as $cleanup) {
-                        $nodelist = $xpath->query('//'.$cleanup, $basenode);
+                        $nodelist = $xpath->query('.//'.$cleanup, $basenode);
                         foreach ($nodelist as $node) {
                             if ($node instanceof DOMAttr) {
                                 $node->ownerElement->removeAttributeNode($node);
