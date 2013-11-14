@@ -65,42 +65,33 @@ class Af_Feedmod extends Plugin implements IHandler
                 if (isset($article['stored']['content'])) $article['content'] = $article['stored']['content'];
                 break;
             }
-            
+
             $link = trim($article['link']);
-            
+
             switch ($config['type']) {
                 case 'xpath':
-                    $doc = $this->fetch_page($link, $config);                    
-                    $content = $this->extract_xpath($doc, $config);
-                    
-                    if($content != '') {
-                        $article['content'] = $content;
-                        $article['plugin_data'] = "feedmod,$owner_uid:" . $article['plugin_data'];
-                    }
-                    break;
+                    $doc = $this->fetch_page($link, $config);
 
-                case 'xpath_daisy-chain':
-                    $content = '';
-                    $base_link = $link;
-                    for ($i = 0; $link != '' && $i < 50; $i++) {
-                        //fetch stuff
-                        $doc = $this->fetch_page($link, $config);
+                    if(!isset($config['next']))
+                        $content = $this->extract_xpath($doc, $config);
+                    else {
+                        for ($i = 0, $content = '', $base_link = $link, $new_link = ''; $i < 50; $i++) {
+                            //extract & append content
+                            $content .= $this->extract_xpath($doc, $config, $doc->documentURI != $base_link, $new_link);
 
-                        //get next link
-                        $xpath = new DOMXPath($doc);
-                        $res = $xpath->query('(//'.$config['next'].')');
-                        if($res->length > 0) {
-                            $new_link = $res->item(0)->textContent;
-                            $link = rewrite_relative_url($link, $new_link);
-                            if(isset($config['SOP']) && $config['SOP'] === TRUE
-                                && strpos($link, $base_link) === FALSE)
-                                $link = '';
+                            //check next link
+                            if($new_link !== NULL) {
+                                $link = rewrite_relative_url($link, $new_link);
+                                if(isset($config['SOP']) && $config['SOP'] === TRUE
+                                    && strpos($link, $base_link) === FALSE)
+                                    break;
+                            }
+                            else
+                                break;
+
+                            //fetch stuff for next iteration
+                            $doc = $this->fetch_page($link, $config);
                         }
-                        else
-                            $link = '';
-
-                        //extract & append content
-                        $content .= $this->extract_xpath($doc, $config, $doc->documentURI != $base_link);
                     }
 
                     if($content != '') {
@@ -108,6 +99,7 @@ class Af_Feedmod extends Plugin implements IHandler
                         $article['plugin_data'] = "feedmod,$owner_uid:" . $article['plugin_data'];
                     }
                     break;
+
                 default:
                     // unknown type or invalid config
                     continue;
@@ -191,7 +183,7 @@ class Af_Feedmod extends Plugin implements IHandler
         return $doc;
     }
 
-    function extract_xpath(DomDocument $doc, $config, $rewrite = false)
+    function extract_xpath(DomDocument $doc, $config, $rewrite = false, &$next = null)
     {
         if ($doc) {
             $basenode = false;
@@ -199,6 +191,10 @@ class Af_Feedmod extends Plugin implements IHandler
             $entries = $xpath->query('(//'.$config['xpath'].')');   // find main DIV according to config
 
             if ($entries->length > 0) $basenode = $entries->item(0);
+
+            //get next link here since it may be removed by the cleanup
+            if ($next !== null && isset($config['next']))
+               $next = $xpath->query('(//'.$config['next'].')')->item(0)->textContent;
 
             if ($basenode) {
                 // remove nodes from cleanup configuration
