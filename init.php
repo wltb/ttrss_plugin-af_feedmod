@@ -85,7 +85,7 @@ class Af_Feedmod extends Plugin implements IHandler
                     for ($i = 0; $link != '' && $i < 50; $i++) {
                         //fetch stuff
                         $doc = $this->fetch_page($link, $config);
-                        
+
                         //get next link
                         $xpath = new DOMXPath($doc);
                         $res = $xpath->query('(//'.$config['next'].')');
@@ -98,11 +98,11 @@ class Af_Feedmod extends Plugin implements IHandler
                         }
                         else
                             $link = '';
-                        
-                        //extract & append content 
+
+                        //extract & append content
                         $content .= $this->extract_xpath($doc, $config, $doc->documentURI != $base_link);
                     }
-                    
+
                     if($content != '') {
                         $article['content'] = $content;
                         $article['plugin_data'] = "feedmod,$owner_uid:" . $article['plugin_data'];
@@ -123,7 +123,7 @@ class Af_Feedmod extends Plugin implements IHandler
     function fetch_page($link, $config)
     {
         global $fetch_last_content_type;
-        
+
         if (version_compare(VERSION, '1.7.9', '>=')) {
             foreach(array('login', 'pass', 'post_query') as $par) {
                 if(isset($config['fetch_parameters'][$par]))
@@ -137,7 +137,7 @@ class Af_Feedmod extends Plugin implements IHandler
         } else {
             // fallback to file_get_contents()
             $html = file_get_contents($link);
-    
+
             // try to fetch charset from HTTP headers
             $headers = $http_response_header;
             $content_type = false;
@@ -148,7 +148,7 @@ class Af_Feedmod extends Plugin implements IHandler
                 }
             }
         }
-        
+
         if (!isset($config['force_charset'])) {
             $charset = false;
             if ($content_type) {
@@ -159,7 +159,7 @@ class Af_Feedmod extends Plugin implements IHandler
             // use forced charset
             $charset = $config['force_charset'];
         }
-        
+
         $doc = new DOMDocument();
         if ($charset) {
             //via hakre (http://stackoverflow.com/a/11310258)
@@ -197,9 +197,9 @@ class Af_Feedmod extends Plugin implements IHandler
             $basenode = false;
             $xpath = new DOMXPath($doc);
             $entries = $xpath->query('(//'.$config['xpath'].')');   // find main DIV according to config
-    
+
             if ($entries->length > 0) $basenode = $entries->item(0);
-    
+
             if ($basenode) {
                 // remove nodes from cleanup configuration
                 if (isset($config['cleanup'])) {
@@ -220,19 +220,19 @@ class Af_Feedmod extends Plugin implements IHandler
                 }
 
                 if ($rewrite) {
-	                //rewrite relative URLs
-	        		$entries = $xpath->query('(.//img[@src]/@src/text()|.//a[@href]/@href/text())', $basenode);
-			        foreach($entries as $entry) {
-	        		    $entry->nodeValue = rewrite_relative_url($doc->documentURI, $entry->textContent);
-	        		}
-        		}
-                
+                    //rewrite relative URLs
+                    $entries = $xpath->query('(.//img[@src]/@src/text()|.//a[@href]/@href/text())', $basenode);
+                    foreach($entries as $entry) {
+                        $entry->nodeValue = rewrite_relative_url($doc->documentURI, $entry->textContent);
+                    }
+                }
+
                 return $doc->saveXML($basenode);
             }
         }
         return '';
     }
-    
+
     function hook_prefs_tabs($args)
     {
         print '<div id="feedmodConfigTab" dojoType="dijit.layout.ContentPane"
