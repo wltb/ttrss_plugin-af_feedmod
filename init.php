@@ -152,7 +152,6 @@ class Af_Feedmod extends Plugin implements IHandler
             $charset = $config['force_charset'];
         }
 
-        $doc = new DOMDocument();
         if ($charset) {
             //via hakre (http://stackoverflow.com/a/11310258)
             $make_html_head = function($enc) { return '<head>
@@ -163,6 +162,7 @@ class Af_Feedmod extends Plugin implements IHandler
             libxml_use_internal_errors(true);
             libxml_clear_errors();
 
+            $doc = new DOMDocument();
             $doc->loadXML('<?xml version="1.0" encoding="' . $charset . '"?> <tag/>');
             $error = libxml_get_last_error();
             if ($error && $error->code == 32) {
@@ -173,11 +173,11 @@ class Af_Feedmod extends Plugin implements IHandler
             else
                 $html_head = $make_html_head($charset);
 
-            $html = $html_head . $html;
             libxml_use_internal_errors(false);
-        }
+        } else $html_head = '';
 
-        @$doc->loadHTML($html);
+        $doc = new DOMDocument();
+        @$doc->loadHTML($html_head . $html);
         $doc->documentURI = $link;
 
         return $doc;
